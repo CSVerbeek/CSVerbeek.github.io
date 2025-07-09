@@ -70,8 +70,8 @@ export class DogFormGroup extends FormGroup<{
 }> {
   constructor() {
     super({
-      barksOften: new FormControl(false),
-      walksPerDay: new FormControl(1, Validators.min(0)),
+      barksOften: new FormControl(false, { nonNullable: true }),
+      walksPerDay: new FormControl(1, { validators: [Validators.min(0)], nonNullable: true }),
     });
   }
 }
@@ -86,8 +86,8 @@ export class CatFormGroup extends FormGroup<{
 }> {
   constructor() {
     super({
-      cleansLitterDaily: new FormControl(true),
-      isIndoor: new FormControl(true),
+      cleansLitterDaily: new FormControl(true, { nonNullable: true }),
+      isIndoor: new FormControl(true, { nonNullable: true }),
     });
   }
 }
@@ -107,13 +107,15 @@ export class PetFormGroup extends FormGroup<{
   private readonly dogForm: DogFormGroup;
   private readonly catForm: CatFormGroup;
 
+  // The constructor can take in controls or config — up to you
   constructor() {
+    const dogFormGroup = new DogFormGroup();
     super({
-      type: new FormControl<PetType>('dog'),
-      info: new DogFormGroup(),
+      type: new FormControl<PetType>('dog', { nonNullable: true }),
+      info: dogFormGroup,
     });
 
-    this.dogForm = this.controls.info;
+    this.dogForm = dogFormGroup;
     this.catForm = new CatFormGroup();
 
     this.handleTypeChanges();
@@ -139,7 +141,9 @@ export class PetFormGroup extends FormGroup<{
 }
 ```
 
-As you can see every instance of `PetFormGroup` will handle its own type changes logic and is encapsulated from other parts of the application. Also note that it's fully compatible with `FormGroup` expectations (both in code and templates)
+As you can see every instance of `PetFormGroup` will handle its own type changes logic and is encapsulated from other parts of the application. Also note that it's fully compatible with `FormGroup` expectations (both in code and templates).
+
+> 💡 Note: The logic you encapsulate in a FormGroup class isn’t limited to just reacting to valueChanges. You can use it to **enable or disable controls**, **add or remove validators dynamically**, **reset subsets of the form**, or **react to status changes** — anything related to managing the behavior of the form belongs here. This makes your form class the single source of truth for how the form behaves.
 
 In your Angular components `PetFormGroup` can be **part of** a larger form:
 
@@ -156,6 +160,10 @@ ngDestroy() {
   this.form.controls.petForm.destroy();
 }
 ```
+
+![type inference in the ide](/assets/images/ide-type-inference.jpg)
+
+_The types of the properties can be inferred through `controls`._
 
 With this structure:
 
@@ -236,8 +244,11 @@ export class PetFormGroupWrapper {
   private readonly catForm = new CatFormGroup();
 
   constructor() {
-    this.formGroup = new FormGroup({
-      type: new FormControl<PetType>('dog'),
+    this.formGroup = new FormGroup<{
+      type: FormControl<PetType>;
+      info: DogFormGroup | CatFormGroup;
+    }>({
+      type: new FormControl<PetType>('dog', { nonNullable: true }),
       info: this.dogForm,
     });
 
@@ -287,7 +298,7 @@ ngDestroy() {
 }
 ```
 
-The differences are not that significant.
+The structure is similar.
 
 ## So Why Inheritance over Composition?
 
@@ -297,7 +308,7 @@ In my experience, it's always the latter.
 
 So how hurtful is inheritance really?
 
-Yes, extending a framework class breaks some clean architecture rules. But in this case, the indirection felt like a bigger trade-off. Especially when your real goal is just to keep logic grouped and forms readable.
+Yes, extending a framework class breaks some clean architecture rules. But in this case, the **indirection** felt like a bigger trade-off. Especially when your real goal is just to keep logic grouped and forms readable.
 
 ## A Note on Lifecycle Management
 
@@ -354,3 +365,7 @@ You saw how using a custom `FormGroup` subclass helps you:
 Composition remains a solid option — safer in the long term, and more flexible if you ever need to swap out Angular forms entirely. But if inheritance gives you simpler, more maintainable code **right now**, that's not something to dismiss lightly.
 
 At the end of the day, the best choice is the one that works well for your team, your codebase, and your actual constraints — not just the textbook best practice.
+
+## A final suggestion
+
+If your reactive forms are getting complex with nested or extended `FormGroup`'s, you might consider **custom form controls** using `ControlValueAccessor`. This approach often leads to clean, reusable, and easy-to-maintain form components.
